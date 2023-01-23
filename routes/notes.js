@@ -1,26 +1,33 @@
 const express = require("express");
 const router = express.Router();
-
+const jwt = require("jsonwebtoken");
+const { SECRET_KEY } = require("../config");
 const notes = require("../controllers/notes");
 
 // session validation
 router.use((req, res, next) => {
-  // commented because session is not working properly
+  const authToken = req.headers.token;
 
-  if (req.session.name) {
-    next();
-  } else {
-    res.end("please login into the system...");
+  if (!authToken) {
+    return res.status(403).json({ error: "unauthorized access" });
   }
 
-  // temp. fix
-  // req.session.name = "Yash";
-  // next();
+  try {
+    const user = jwt.verify(authToken, SECRET_KEY);
+
+    req.user = user;
+    next();
+  } catch (error) {
+    return res.status(400).json({ error: "invalid token" });
+  }
 });
 
 // get request
 router.get("/", notes.getNotes);
-router.get("/:yy-:mm-:dd", notes.getNotesByDate);
+router.get("/size", notes.getNotesSize);
+router.get("/:yy/", notes.getNotesByYear);
+router.get("/:yy/:mm/", notes.getNotesByMonth);
+router.get("/:yy/:mm/:dd", notes.getNotesByDate);
 
 // post request
 router.post("/", notes.addNote);

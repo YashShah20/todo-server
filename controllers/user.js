@@ -1,30 +1,37 @@
-const config = require("../config");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+
+const { database, SECRET_KEY } = require("../config");
 
 const Pool = require("pg").Pool;
-const pool = new Pool(config.database);
+const pool = new Pool(database);
 
 exports.signin = async (req, res) => {
   try {
-    // // console.log(req.body);
+    const { name, password } = req.body;
 
-    const user = await pool.query(
-      `select password from users where name='${req.body.name}';`
-    );
+    const user = await pool.query(`select * from users where name='${name}';`);
 
     if (Object.keys(user.rows).length == 0) {
-      res.send("invalid credential");
-    } else if (user.rows[0].password === req.body.password) {
-      // setting session variable
-      req.session.name = req.body.name;
-
-      // // console.log(req.session);
-      res.send("success");
-    } else {
-      res.send("invalid credentials");
+      return res.status(404).json({ error: "invalid credentails" });
     }
+
+    const matchedPassword = await bcrypt.compare(
+      password,
+      user.rows[0].password
+    );
+
+    if (!matchedPassword) {
+      return res.status(404).json({ error: "invalid credentails" });
+    }
+
+    const token = jwt.sign(
+      { name: user.rows[0].name, role: user.rows[0].role },
+      SECRET_KEY
+    );
+    res.status(200).json({ user: user.rows[0], token: token });
   } catch (error) {
-    res.send("error");
-    // console.log(error);
+    console.log(error);
   }
 };
 
@@ -37,34 +44,49 @@ exports.signup = [
     if (user.rowCount === 0) {
       next();
     } else {
-      res.end("in use");
+      return res.status(400).json({ error: "in use" });
     }
   },
 
   // creating new user
   async (req, res) => {
     try {
+      const { name, password, role } = req.body;
+      const hasedPassword = await bcrypt.hash(password, 10);
+
       const user = await pool.query(
-        `insert into users (name,password) values ($1,$2) returning *`,
-        [req.body.name, req.body.password]
+        `insert into users (name,password,role) values ($1,$2,$3) returning *`,
+        [name, hasedPassword, role]
       );
+
       if (user.rowCount === 1) {
-        res.send(`success`);
+        const token = jwt.sign({ name: name, role: role }, SECRET_KEY);
+        res.status(201).json({ user: user.rows[0], token: token });
       } else {
-        res.send(`failed`);
+        res.status(400).json({ error: `failed` });
       }
     } catch (error) {
-      // // console.log(error.message);
-      res.end("error");
+      console.log(error.message);
+      // res.end({ error: "error" });
     }
   },
 ];
 
-exports.signout = (req, res) => {
-  req.session.destroy((error) => {
-    if (!error) {
-      // console.log(`session destroyed...`);
-    }
-  });
-  res.send("success");
+exports.signout = (req, res) => {};
+
+exports.getUser = async (req, res) => {
+  const authToken = req.headers.token;
+
+  if (!authToken) {
+    return res.status(403).json({ error: "unauthorized access" });
+  }
+
+  try {
+    const user = jwt.verify(authToken, SECRET_KEY);
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.log(error);
+    return res.status(400).json({ error: "invalid token" });
+  }
 };

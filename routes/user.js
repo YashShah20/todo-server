@@ -7,4 +7,7 @@ router.post("/signup", user.signup);
 router.post("/signout", user.signout);
 router.post("/", user.signin);
 
+// get requests
+router.get("/user", user.getUser);
+
 module.exports = router;
