@@ -90,3 +90,46 @@ exports.getUser = async (req, res) => {
     return res.status(400).json({ error: "invalid token" });
   }
 };
+
+exports.updatePassword = async (req, res) => {
+  const authToken = req.headers.token;
+
+  if (!authToken) {
+    return res.status(403).json({ error: "unauthorized access" });
+  }
+
+  try {
+    const user = jwt.verify(authToken, SECRET_KEY);
+
+    const { oldPassword, newPassword } = req.body;
+    const { name } = user;
+
+    const result = await pool.query(
+      `select password from users where name='${name}'`
+    );
+
+    if (result.rows.length != 1) {
+      return res.status(400).json({ error: "something went wrong" });
+    }
+
+
+    const matchedPassword = await bcrypt.compare(
+      oldPassword,
+      result.rows[0].password
+    );
+
+    if (!matchedPassword) {
+      return res.status(400).json({ error: "Incorrect current password" });
+    }
+
+    const newHashedPassword = await bcrypt.hash(newPassword, 10);
+
+    const updated = await pool.query(
+      `update users set password='${newHashedPassword}' where name='${name}'`
+    );
+
+    res.json(updated.rows);
+  } catch (error) {
+    console.log(error);
+  }
+};

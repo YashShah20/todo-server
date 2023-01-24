@@ -4,8 +4,10 @@ const jwt = require("jsonwebtoken");
 const { SECRET_KEY } = require("../config");
 const notes = require("../controllers/notes");
 
-// session validation
+// auth
 router.use((req, res, next) => {
+  // console.log(req.headers);
+  // console.log(req.body);
   const authToken = req.headers.token;
 
   if (!authToken) {

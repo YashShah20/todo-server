@@ -13,6 +13,7 @@ const config = require("./config");
 const noteRouter = require("./routes/notes");
 const aboutRouter = require("./routes/about");
 const userRouter = require("./routes/user");
+const adminRouter = require("./routes/admin");
 
 //session
 // app.use(
@@ -50,6 +51,7 @@ app.use(bodyParser.json());
 app.use("/", userRouter);
 app.use("/notes", noteRouter);
 app.use("/about", aboutRouter);
+app.use("/admin", adminRouter);
 
 // connection
 const port = config.port;
