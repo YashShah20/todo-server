@@ -15,17 +15,9 @@ exports.getNotes = async (req, res) => {
     if (page) {
       note_per_page = note_per_page || 5;
       let offset = note_per_page * (page - 1);
-      query = `select * from notes where name='${name}' or
-        case 
-          when (select role from users where name='${name}')=3 then 1=1 
-        end
-        order by id desc limit ${note_per_page} offset ${offset};`;
+      query = `select * from notes where name='${name}' order by id desc limit ${note_per_page} offset ${offset};`;
     } else {
-      query = `select * from notes where name='${name}' or
-        case 
-          when (select role from users where name='${name}')=3 then 1=1 
-        end
-        order by id desc`;
+      query = `select * from notes where name='${name}' order by id desc`;
     }
     console.log(query);
     const notes = await pool.query(query);
@@ -41,10 +33,7 @@ exports.getNotesSize = async (req, res) => {
     const { name, role } = req.user;
     // const name = "Yash"; // temp. fix
 
-    const query = `select count(*) from notes where name='${name}' or
-    case 
-      when (select role from users where name='${name}')=3 then 1=1 
-    end`;
+    const query = `select count(*) from notes where name='${name}'`;
     const notes = await pool.query(query);
     console.log(notes.rows);
     res.json(notes.rows[0]);
@@ -63,7 +52,7 @@ exports.getNotesByYear = async (req, res) => {
     const yy = parseInt(req.params.yy);
 
     const notes = await pool.query(
-      `select * from notes where name='${name}' and created_on>='${yy}-${mm}-${dd}' and created_on<'${
+      `select * from notes where (name='${name}') and created_on>='${yy}-${mm}-${dd}' and created_on<'${
         yy + 1
       }-${mm}-${dd}';`
     );
@@ -90,7 +79,7 @@ exports.getNotesByMonth = async (req, res) => {
     const yy = parseInt(req.params.yy);
 
     const notes = await pool.query(
-      `select * from notes where name='${name}' and created_on>='${yy}-${mm}-${dd}' and created_on<'${yy}-${end_mm}-${dd}';`
+      `select * from notes where (name='${name}') and created_on>='${yy}-${mm}-${dd}' and created_on<'${yy}-${end_mm}-${dd}';`
     );
     res.json(notes.rows);
   } catch (error) {
@@ -118,7 +107,7 @@ exports.getNotesByDate = async (req, res) => {
     const yy = parseInt(req.params.yy);
 
     const notes = await pool.query(
-      `select * from notes where name='${name}' and created_on>='${yy}-${mm}-${dd}' and created_on<'${yy}-${mm}-${end_dd}';`
+      `select * from notes where (name='${name}') and created_on>='${yy}-${mm}-${dd}' and created_on<'${yy}-${mm}-${end_dd}';`
     );
     res.json(notes.rows);
   } catch (error) {
@@ -133,12 +122,14 @@ exports.addNote = async (req, res) => {
 
     const content = req.body.content;
 
+    console.log(content);
     const notes = await pool.query(
       `insert into notes (name,content) values ($1,$2) returning *`,
       [name, content]
     );
 
-    res.status(200).json(notes.rows);
+    console.log(notes.rows[0]);
+    res.status(200).json(notes.rows[0]);
   } catch (error) {
     res.status(400).json(error.message);
   }
@@ -149,17 +140,18 @@ exports.updateNote = async (req, res) => {
     const { name, role } = req.user;
     // const name = "Yash"; // temp. fix
 
-    console.log(req.body);
+    // console.log(req.body);
     const content = req.body.content;
     const id = req.params.id;
 
+    // console.log(id);
+
     const notes = await pool.query(
-      `update notes set content='${content}' where id=${id} and name='${name}' or
-      case 
-        when (select role from users where name='${name}')=3 then 1=1 
-      end
+      `update notes set content='${content}' where id=${id} and (name='${name}' or ${role}=3)
       returning *`
     );
+    console.log(`update notes set content='${content}' where id=${id} and (name='${name}' or ${role}=3)
+    returning *`);
     res.json(notes.rows);
   } catch (error) {
     console.log(error);
@@ -175,10 +167,7 @@ exports.deleteNote = async (req, res) => {
     const id = req.params.id;
 
     const notes = await pool.query(
-      `delete from notes where id=${id} and name='${name}' or
-      case 
-        when (select role from users where name='${name}')=3 then 1=1 
-      end returning *`
+      `delete from notes where id=${id} and (name='${name}' or ${role}=3) returning *`
     );
     res.json(notes.rows);
   } catch (error) {
